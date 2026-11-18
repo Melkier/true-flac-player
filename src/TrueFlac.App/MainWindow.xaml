@@ -1,0 +1,253 @@
+<Window x:Class="TrueFlac.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="True FLAC Player · Bit-Perfect Lossless Gatekeeper"
+        Height="820" Width="1340" MinHeight="660" MinWidth="1060"
+        Background="{StaticResource BgRoot}" Foreground="{StaticResource TextPrimary}"
+        AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Border Background="#0E2A38" BorderBrush="#22D3EE" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="0,0,10,0">
+                        <TextBlock Text="FLAC TRUE" Foreground="#22D3EE" FontWeight="Bold" FontSize="12"/>
+                    </Border>
+                    <StackPanel>
+                        <TextBlock Text="True FLAC Player" FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Text="Bit-perfect + auditor anti-MP3/transcodes" FontSize="11" Foreground="{StaticResource TextMuted}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="InputLinkBox" Grid.Column="0" FontSize="13" VerticalContentAlignment="Center"
+                             ToolTip="Pega una ruta local, .lnk, carpeta, .m3u o link de Archive.org" KeyDown="InputLinkBox_KeyDown"/>
+                    <TextBlock IsHitTestVisible="False" Text="Pega ruta de carpeta/archivo, .lnk, .m3u o link de Archive.org..."
+                               Foreground="#64748B" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=InputLinkBox}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Button Grid.Column="1" Content="Auditar Link / Ruta" Background="#0891B2" BorderBrush="#22D3EE"
+                            FontWeight="SemiBold" Margin="8,0,0,0" Click="AuditLinkButton_Click"/>
+                </Grid>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="+ Archivos" Margin="0,0,6,0" Click="OpenFilesButton_Click"/>
+                    <Button Content="+ Carpeta" Margin="0,0,6,0" Click="OpenFolderButton_Click"/>
+                    <Button Content="Re-auditar" Click="ReauditAllButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,0,10">
+            <WrapPanel VerticalAlignment="Center">
+                <TextBlock Text="Salida:" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox x:Name="DeviceCombo" Width="250" Margin="0,0,14,0" SelectionChanged="DeviceCombo_SelectionChanged"/>
+
+                <CheckBox x:Name="ExclusiveCheck" Content="WASAPI Exclusive (Bit-Perfect)" Foreground="{StaticResource TextPrimary}"
+                          IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0" Checked="ExclusiveCheck_Changed" Unchecked="ExclusiveCheck_Changed"/>
+
+                <TextBlock Text="Umbral mínimo:" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox x:Name="ThresholdCombo" Width="205" Margin="0,0,16,0" SelectionChanged="PolicyControl_Changed">
+                    <ComboBoxItem Content="CD Lossless (16-bit / 44.1 kHz)" Tag="16|44100" IsSelected="True"/>
+                    <ComboBoxItem Content="Studio 48 (24-bit / 48 kHz)" Tag="24|48000"/>
+                    <ComboBoxItem Content="Hi-Res (24-bit / 96 kHz)" Tag="24|96000"/>
+                </ComboBox>
+
+                <CheckBox x:Name="RejectTranscodeCheck" Content="Rechazar Fake FLAC (corte FFT)" Foreground="{StaticResource TextPrimary}"
+                          IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0" Checked="PolicyControl_Changed" Unchecked="PolicyControl_Changed"/>
+
+                <CheckBox x:Name="RequireMd5Check" Content="Exigir MD5 íntegro" Foreground="{StaticResource TextPrimary}"
+                          IsChecked="True" VerticalAlignment="Center" Checked="PolicyControl_Changed" Unchecked="PolicyControl_Changed"/>
+            </WrapPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="360"/>
+            </Grid.ColumnDefinitions>
+
+            <TabControl x:Name="MainTabs" Grid.Column="0" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource BorderSubtle}" Margin="0,0,10,0">
+                <TabItem x:Name="VerifiedTabHeader" Header="True FLAC / Aptos (0)">
+                    <DataGrid x:Name="VerifiedGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                              Background="{StaticResource BgPanel}" Foreground="{StaticResource TextPrimary}"
+                              RowBackground="#121722" AlternatingRowBackground="#161D2B" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#1F293B" HeadersVisibility="Column" BorderThickness="0"
+                              SelectionChanged="TrackGrid_SelectionChanged" MouseDoubleClick="VerifiedGrid_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding TrackNumber}" Width="42"/>
+                            <DataGridTextColumn Header="Estado" Binding="{Binding StatusLabel}" Width="95"/>
+                            <DataGridTextColumn Header="Título" Binding="{Binding Title}" Width="*"/>
+                            <DataGridTextColumn Header="Artista" Binding="{Binding Artist}" Width="140"/>
+                            <DataGridTextColumn Header="Álbum" Binding="{Binding Album}" Width="140"/>
+                            <DataGridTextColumn Header="Resolución" Binding="{Binding StreamInfo.FormatBadge}" Width="120"/>
+                            <DataGridTextColumn Header="Corte FFT" Binding="{Binding Spectral.EstimatedCutoffKhz, StringFormat={}{0:0.0} kHz}" Width="80"/>
+                            <DataGridTextColumn Header="Duración" Binding="{Binding DurationFormatted}" Width="70"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+
+                <TabItem x:Name="RejectedTabHeader" Header="Rechazados / Cuarentena (0)">
+                    <DataGrid x:Name="RejectedGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                              Background="{StaticResource BgPanel}" Foreground="{StaticResource TextPrimary}"
+                              RowBackground="#121722" AlternatingRowBackground="#19161D" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#2B1F27" HeadersVisibility="Column" BorderThickness="0"
+                              SelectionChanged="TrackGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Estado" Binding="{Binding StatusLabel}" Width="105"/>
+                            <DataGridTextColumn Header="Archivo" Binding="{Binding FileName}" Width="200"/>
+                            <DataGridTextColumn Header="Motivo de rechazo" Binding="{Binding VerdictHeadline}" Width="230"/>
+                            <DataGridTextColumn Header="Detalle técnico" Binding="{Binding TechnicalDetail}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+
+                <TabItem x:Name="ArchiveTab" Header="Archive.org · Inspector FLAC">
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ArchiveQueryBox" Grid.Column="0" Text="malice mizer" KeyDown="ArchiveQueryBox_KeyDown"/>
+                            <Button Grid.Column="1" Content="Buscar (format:FLAC)" Margin="8,0,0,0" Background="#0891B2" BorderBrush="#22D3EE" Click="ArchiveSearchButton_Click"/>
+                            <Button Grid.Column="2" Content="Carpeta destino..." Margin="8,0,0,0" Click="ChangeDownloadFolder_Click"/>
+                        </Grid>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <DataGrid x:Name="ArchiveItemsGrid" Grid.Column="0" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                                      Background="#0F141E" Foreground="{StaticResource TextPrimary}" RowBackground="#121722" AlternatingRowBackground="#171E2C"
+                                      Margin="0,0,8,0" SelectionChanged="ArchiveItemsGrid_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Álbum / Ítem" Binding="{Binding Title}" Width="*"/>
+                                    <DataGridTextColumn Header="Creador" Binding="{Binding Creator}" Width="120"/>
+                                    <DataGridTextColumn Header="Fecha" Binding="{Binding Date}" Width="75"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <DataGrid x:Name="ArchiveFilesGrid" Grid.Column="1" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended"
+                                      Background="#0F141E" Foreground="{StaticResource TextPrimary}" RowBackground="#121722" AlternatingRowBackground="#171E2C">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Archivo .flac" Binding="{Binding FileName}" Width="*"/>
+                                    <DataGridTextColumn Header="Duración" Binding="{Binding LengthText}" Width="70"/>
+                                    <DataGridTextColumn Header="Tamaño" Binding="{Binding SizeMbText}" Width="70"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                        <DockPanel Grid.Row="2" Margin="0,10,0,0">
+                            <TextBlock x:Name="ArchiveStatusText" Text="Lista solo archivos .flac; al descargar, cada pista se audita antes de entrar." Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                            <Button x:Name="ArchiveDownloadBtn" Content="Descargar FLAC y Auditar" DockPanel.Dock="Right" Background="#059669" BorderBrush="#10B981" FontWeight="SemiBold" Click="ArchiveDownloadButton_Click"/>
+                        </DockPanel>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+
+            <Border Grid.Column="1" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" CornerRadius="10" Padding="14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="INSPECTOR DE FIDELIDAD" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentCyan}" Margin="0,0,0,10"/>
+                        <Border Background="#0F141E" BorderBrush="#283248" BorderThickness="1" CornerRadius="8" Height="170" Margin="0,0,0,10">
+                            <Grid>
+                                <TextBlock x:Name="CoverPlaceholderText" Text="FLAC&#x0a;LOSSLESS" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#334155" FontSize="18" FontWeight="Bold"/>
+                                <Image x:Name="CoverImage" Stretch="Uniform"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="InspectorTitle" Text="Selecciona o arrastra archivos FLAC" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="InspectorArtist" Text="Los archivos MP3, AAC, OGG o Fake FLAC serán rechazados." FontSize="12" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                        <Border x:Name="InspectorStatusBadge" Background="#1E293B" CornerRadius="6" Padding="8,5" Margin="0,0,0,10">
+                            <TextBlock x:Name="InspectorStatusText" Text="ESPERANDO PISTA" FontWeight="Bold" FontSize="12"/>
+                        </Border>
+                        <TextBlock x:Name="InspectorSpecsText" Text="Formato: --&#x0a;Bitrate: --&#x0a;MD5 PCM: --&#x0a;Corte FFT: --" FontSize="12" Foreground="{StaticResource TextPrimary}" LineHeight="20" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <TextBlock Text="Espectro FFT (0.5 → 22 kHz)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextMuted}" Margin="0,0,0,4"/>
+                        <Border Background="#0A0E15" BorderBrush="#1F293B" BorderThickness="1" CornerRadius="6" Padding="6" Height="130">
+                            <Canvas x:Name="SpectrumCanvas" ClipToBounds="True"/>
+                        </Border>
+                        <TextBlock x:Name="InspectorDetailText" Text="" FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+        <Border Grid.Row="3" Background="{StaticResource BgPanel}" BorderBrush="{StaticResource BorderSubtle}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,10,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="CurrentTimeText" Grid.Column="0" Text="0:00" FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Slider x:Name="SeekSlider" Grid.Column="1" Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"
+                            PreviewMouseLeftButtonDown="SeekSlider_DragStarted" PreviewMouseLeftButtonUp="SeekSlider_DragCompleted"/>
+                    <TextBlock x:Name="TotalTimeText" Grid.Column="2" Text="0:00" FontFamily="Consolas" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock x:Name="NowPlayingTitle" Text="Sin reproducción activa" FontWeight="SemiBold" FontSize="13"/>
+                        <Border x:Name="OutputModeBadge" Background="#1E293B" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" Margin="0,3,0,0">
+                            <TextBlock x:Name="OutputModeText" Text="MOTOR DETENIDO" FontSize="11" Foreground="{StaticResource TextMuted}" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="⏮ Anterior" Margin="0,0,6,0" Click="PrevButton_Click"/>
+                        <Button x:Name="PlayPauseBtn" Content="▶ Reproducir" Background="#059669" BorderBrush="#10B981" FontWeight="Bold" Width="120" Margin="0,0,6,0" Click="PlayPauseButton_Click"/>
+                        <Button Content="⏹ Detener" Margin="0,0,6,0" Click="StopButton_Click"/>
+                        <Button Content="Siguiente ⏭" Click="NextButton_Click"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="VolumeLabel" Text="Vol: 100% (Bit-Perfect)" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+                        <Slider x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Value="100" VerticalAlignment="Center"
+                                ValueChanged="VolumeSlider_ValueChanged" PreviewMouseLeftButtonUp="VolumeSlider_Commit" KeyUp="VolumeSlider_KeyUp"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
